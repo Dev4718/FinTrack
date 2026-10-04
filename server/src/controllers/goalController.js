@@ -123,6 +123,57 @@ export const contributeGoal = async (req, res, next) => {
   }
 };
 
+export const updateGoal = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    const { title, targetAmount, currentAmount, targetDate, category, color, icon } = req.body;
+
+    const existing = await prisma.goal.findFirst({
+      where: { id, userId: req.user.id }
+    });
+
+    if (!existing) {
+      return res.status(404).json({
+        success: false,
+        message: 'Goal not found.'
+      });
+    }
+
+    const updated = await prisma.goal.update({
+      where: { id },
+      data: {
+        ...(title !== undefined && { title }),
+        ...(targetAmount !== undefined && { targetAmount: parseFloat(targetAmount) }),
+        ...(currentAmount !== undefined && { currentAmount: parseFloat(currentAmount) }),
+        ...(targetDate !== undefined && { targetDate }),
+        ...(category !== undefined && { category }),
+        ...(color !== undefined && { color }),
+        ...(icon !== undefined && { icon })
+      }
+    });
+
+    res.status(200).json({
+      success: true,
+      message: 'Goal updated successfully.',
+      data: {
+        id: updated.id,
+        title: updated.title,
+        targetAmount: Number(updated.targetAmount),
+        currentAmount: Number(updated.currentAmount),
+        targetDate: updated.targetDate,
+        category: updated.category,
+        color: updated.color,
+        icon: updated.icon,
+        progressPercentage: Number(updated.targetAmount) > 0 
+          ? Math.min(100, Math.round((Number(updated.currentAmount) / Number(updated.targetAmount)) * 100))
+          : 0
+      }
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
 export const deleteGoal = async (req, res, next) => {
   try {
     const { id } = req.params;

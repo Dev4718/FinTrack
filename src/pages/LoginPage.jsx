@@ -4,16 +4,26 @@ import { useApp } from '../context/AppContext';
 import './AuthPages.css';
 
 const LoginPage = () => {
-  const { navigateTo } = useApp();
-  const [email, setEmail] = useState('john@example.com');
-  const [password, setPassword] = useState('••••••••••••');
+  const { navigateTo, login } = useApp();
+  const [email, setEmail] = useState('user@fintrack.com');
+  const [password, setPassword] = useState('password123');
   const [showPassword, setShowPassword] = useState(false);
   const [rememberMe, setRememberMe] = useState(true);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [errorMsg, setErrorMsg] = useState('');
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    // Frontend demo - transition directly to dashboard
-    navigateTo('dashboard');
+    setIsSubmitting(true);
+    setErrorMsg('');
+    try {
+      await login(email, password);
+      navigateTo('dashboard');
+    } catch (err) {
+      setErrorMsg(err.message || 'Login failed. Please check your credentials.');
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
@@ -155,9 +165,15 @@ const LoginPage = () => {
               </button>
             </div>
 
+            {errorMsg && (
+              <div style={{ color: '#ef4444', fontSize: '0.875rem', marginBottom: '1rem', background: 'rgba(239, 68, 68, 0.1)', padding: '0.625rem 0.875rem', borderRadius: '8px', border: '1px solid rgba(239, 68, 68, 0.2)' }}>
+                {errorMsg}
+              </div>
+            )}
+
             {/* Green Login Button */}
-            <button type="submit" className="btn-auth-submit">
-              Login
+            <button type="submit" className="btn-auth-submit" disabled={isSubmitting}>
+              {isSubmitting ? 'Logging in...' : 'Login'}
             </button>
 
             {/* Switch to Register */}

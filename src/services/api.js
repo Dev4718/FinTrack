@@ -145,6 +145,10 @@ class ApiService {
     });
   }
 
+  async createBudget(budgetData) {
+    return this.saveBudget(budgetData);
+  }
+
   async deleteBudget(id) {
     return this.request(`/budgets/${id}`, {
       method: 'DELETE'
@@ -159,6 +163,13 @@ class ApiService {
   async createGoal(goalData) {
     return this.request('/goals', {
       method: 'POST',
+      body: JSON.stringify(goalData)
+    });
+  }
+
+  async updateGoal(id, goalData) {
+    return this.request(`/goals/${id}`, {
+      method: 'PUT',
       body: JSON.stringify(goalData)
     });
   }

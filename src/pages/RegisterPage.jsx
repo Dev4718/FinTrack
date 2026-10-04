@@ -4,27 +4,37 @@ import { useApp } from '../context/AppContext';
 import './AuthPages.css';
 
 const RegisterPage = () => {
-  const { navigateTo, setUser } = useApp();
-  const [name, setName] = useState('John Doe');
-  const [email, setEmail] = useState('john@example.com');
-  const [password, setPassword] = useState('••••••••••••');
-  const [confirmPassword, setConfirmPassword] = useState('••••••••••••');
+  const { navigateTo, register } = useApp();
+  const [name, setName] = useState('');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [errorMsg, setErrorMsg] = useState('');
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    if (name) {
-      const initials = name
-        .split(' ')
-        .map(n => n[0])
-        .join('')
-        .toUpperCase()
-        .slice(0, 2) || 'JD';
-      setUser({ name, email, initials });
+    if (password !== confirmPassword) {
+      setErrorMsg('Passwords do not match');
+      return;
     }
-    // Frontend demo - transition directly to dashboard
-    navigateTo('dashboard');
+    if (password.length < 6) {
+      setErrorMsg('Password must be at least 6 characters');
+      return;
+    }
+
+    setIsSubmitting(true);
+    setErrorMsg('');
+    try {
+      await register(name, email, password);
+      navigateTo('dashboard');
+    } catch (err) {
+      setErrorMsg(err.message || 'Registration failed.');
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
@@ -183,9 +193,15 @@ const RegisterPage = () => {
               </div>
             </div>
 
+            {errorMsg && (
+              <div style={{ color: '#ef4444', fontSize: '0.875rem', marginBottom: '1rem', background: 'rgba(239, 68, 68, 0.1)', padding: '0.625rem 0.875rem', borderRadius: '8px', border: '1px solid rgba(239, 68, 68, 0.2)' }}>
+                {errorMsg}
+              </div>
+            )}
+
             {/* Green Register Button */}
-            <button type="submit" className="btn-auth-submit">
-              Register
+            <button type="submit" className="btn-auth-submit" disabled={isSubmitting}>
+              {isSubmitting ? 'Creating account...' : 'Register'}
             </button>
 
             {/* Switch to Login */}

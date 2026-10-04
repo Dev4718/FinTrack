@@ -12,7 +12,8 @@
     "server:start": "npm --prefix server run start",
     "prisma:push": "npm --prefix server run prisma:push",
     "prisma:studio": "npm --prefix server run prisma:studio",
-    "seed": "npm --prefix server run seed"
+    "seed": "npm --prefix server run seed",
+    "db:clear": "npm --prefix server run db:clear"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.117.2",

@@ -2,6 +2,7 @@ import express from 'express';
 import { 
   getGoals, 
   createGoal, 
+  updateGoal,
   contributeGoal, 
   deleteGoal,
   goalSchema 
@@ -15,6 +16,7 @@ router.use(protect);
 
 router.get('/', getGoals);
 router.post('/', validate(goalSchema), createGoal);
+router.put('/:id', updateGoal);
 router.patch('/:id/contribute', contributeGoal);
 router.delete('/:id', deleteGoal);
 

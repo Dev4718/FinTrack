@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { 
   INITIAL_TRANSACTIONS, 
   INITIAL_CATEGORIES, 
@@ -6,6 +6,7 @@ import {
   INITIAL_GOALS, 
   INITIAL_NOTIFICATIONS 
 } from '../data/mockData';
+import api from '../services/api';
 
 const AppContext = createContext();
 
@@ -35,32 +36,20 @@ export const AppProvider = ({ children }) => {
   };
 
   const [currentPage, setCurrentPage] = useState(getInitialPage);
-  const [transactions, setTransactions] = useState(() => {
-    const saved = localStorage.getItem('fintrack_transactions');
-    return saved ? JSON.parse(saved) : INITIAL_TRANSACTIONS;
-  });
-  const [categories, setCategories] = useState(() => {
-    const saved = localStorage.getItem('fintrack_categories');
-    return saved ? JSON.parse(saved) : INITIAL_CATEGORIES;
-  });
-  const [budgets, setBudgets] = useState(() => {
-    const saved = localStorage.getItem('fintrack_budgets');
-    return saved ? JSON.parse(saved) : INITIAL_BUDGETS;
-  });
-  const [goals, setGoals] = useState(() => {
-    const saved = localStorage.getItem('fintrack_goals');
-    return saved ? JSON.parse(saved) : INITIAL_GOALS;
-  });
-  const [notifications, setNotifications] = useState(() => {
-    const saved = localStorage.getItem('fintrack_notifications');
-    return saved ? JSON.parse(saved) : INITIAL_NOTIFICATIONS;
-  });
+  const [transactions, setTransactions] = useState([]);
+  const [categories, setCategories] = useState(INITIAL_CATEGORIES);
+  const [budgets, setBudgets] = useState([]);
+  const [goals, setGoals] = useState([]);
+  const [notifications, setNotifications] = useState([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isSyncing, setIsSyncing] = useState(false);
+
   const [user, setUser] = useState(() => {
     const saved = localStorage.getItem('fintrack_user');
     return saved ? JSON.parse(saved) : {
-      name: 'John Doe',
-      email: 'john@example.com',
-      initials: 'JD',
+      name: 'Default User',
+      email: 'user@fintrack.com',
+      initials: 'DU',
       currency: 'INR',
       theme: 'light'
     };
@@ -89,34 +78,156 @@ export const AppProvider = ({ children }) => {
   // Toast System
   const [toast, setToast] = useState(null);
 
-  const showToast = (message, type = 'success') => {
+  const showToast = useCallback((message, type = 'success') => {
     setToast({ id: Date.now(), message, type });
     setTimeout(() => {
       setToast(null);
     }, 4000);
+  }, []);
+
+  // Fetch all user records from Supabase via backend API
+  const fetchAllData = useCallback(async () => {
+    if (!api.token) return;
+    setIsSyncing(true);
+
+    try {
+      const [catRes, txRes, bgtRes, goalRes, notifRes] = await Promise.allSettled([
+        api.getCategories(),
+        api.getTransactions({ limit: 100 }),
+        api.getBudgets(),
+        api.getGoals(),
+        api.getNotifications()
+      ]);
+
+      if (catRes.status === 'fulfilled' && catRes.value?.data) {
+        setCategories(catRes.value.data.length > 0 ? catRes.value.data : INITIAL_CATEGORIES);
+      }
+      if (txRes.status === 'fulfilled' && txRes.value?.data) {
+        setTransactions(txRes.value.data);
+      }
+      if (bgtRes.status === 'fulfilled' && bgtRes.value?.data) {
+        setBudgets(bgtRes.value.data);
+      }
+      if (goalRes.status === 'fulfilled' && goalRes.value?.data) {
+        setGoals(goalRes.value.data);
+      }
+      if (notifRes.status === 'fulfilled' && notifRes.value?.data) {
+        setNotifications(notifRes.value.data);
+      }
+    } catch (error) {
+      console.error('Error syncing data with backend:', error);
+    } finally {
+      setIsSyncing(false);
+      setIsLoading(false);
+    }
+  }, []);
+
+  // Ensure an active authenticated session
+  const initializeSession = useCallback(async () => {
+    try {
+      if (api.token) {
+        try {
+          const meRes = await api.getMe();
+          if (meRes?.user) {
+            setUser(meRes.user);
+            localStorage.setItem('fintrack_user', JSON.stringify(meRes.user));
+            await fetchAllData();
+            return;
+          }
+        } catch {
+          // Token expired or invalid, reset
+          api.setToken(null);
+        }
+      }
+
+      // Auto-login or register default active session for seamless usage
+      try {
+        const loginRes = await api.login('user@fintrack.com', 'password123');
+        if (loginRes?.user) {
+          setUser(loginRes.user);
+          localStorage.setItem('fintrack_user', JSON.stringify(loginRes.user));
+          await fetchAllData();
+          return;
+        }
+      } catch {
+        // If user doesn't exist, create it in Supabase
+        const regRes = await api.register('Default User', 'user@fintrack.com', 'password123', 'INR');
+        if (regRes?.user) {
+          setUser(regRes.user);
+          localStorage.setItem('fintrack_user', JSON.stringify(regRes.user));
+          await fetchAllData();
+          return;
+        }
+      }
+    } catch (err) {
+      console.error('Failed to establish backend session:', err);
+    } finally {
+      setIsLoading(false);
+    }
+  }, [fetchAllData]);
+
+  useEffect(() => {
+    initializeSession();
+  }, [initializeSession]);
+
+  // Auth Functions
+  const login = async (email, password) => {
+    setIsLoading(true);
+    try {
+      const res = await api.login(email, password);
+      if (res.user) {
+        setUser(res.user);
+        localStorage.setItem('fintrack_user', JSON.stringify(res.user));
+        await fetchAllData();
+        showToast(`Welcome back, ${res.user.name}!`);
+        return res;
+      }
+    } catch (error) {
+      showToast(error.message || 'Login failed. Please check credentials.', 'error');
+      throw error;
+    } finally {
+      setIsLoading(false);
+    }
   };
 
-  // Persist items
-  useEffect(() => {
-    localStorage.setItem('fintrack_transactions', JSON.stringify(transactions));
-  }, [transactions]);
+  const register = async (name, email, password, currency = 'INR') => {
+    setIsLoading(true);
+    try {
+      const res = await api.register(name, email, password, currency);
+      if (res.user) {
+        setUser(res.user);
+        localStorage.setItem('fintrack_user', JSON.stringify(res.user));
+        await fetchAllData();
+        showToast(`Account created successfully! Welcome, ${res.user.name}.`);
+        return res;
+      }
+    } catch (error) {
+      showToast(error.message || 'Registration failed.', 'error');
+      throw error;
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
-  useEffect(() => {
-    localStorage.setItem('fintrack_categories', JSON.stringify(categories));
-  }, [categories]);
+  const logout = () => {
+    api.logout();
+    localStorage.removeItem('fintrack_user');
+    setUser({
+      name: 'Guest',
+      email: '',
+      initials: 'G',
+      currency: 'INR',
+      theme: 'light'
+    });
+    setTransactions([]);
+    setBudgets([]);
+    setGoals([]);
+    setNotifications([]);
+    navigateTo('landing');
+    showToast('Logged out successfully.');
+  };
 
-  useEffect(() => {
-    localStorage.setItem('fintrack_budgets', JSON.stringify(budgets));
-  }, [budgets]);
-
-  useEffect(() => {
-    localStorage.setItem('fintrack_goals', JSON.stringify(goals));
-  }, [goals]);
-
-  useEffect(() => {
-    localStorage.setItem('fintrack_notifications', JSON.stringify(notifications));
-  }, [notifications]);
-
+  // Persist local user preferences
   useEffect(() => {
     localStorage.setItem('fintrack_user', JSON.stringify(user));
   }, [user]);
@@ -124,11 +235,11 @@ export const AppProvider = ({ children }) => {
   // Calculate live stats
   const totalIncome = transactions
     .filter(t => t.type === 'Income')
-    .reduce((acc, curr) => acc + curr.amount, 0);
+    .reduce((acc, curr) => acc + Number(curr.amount || 0), 0);
 
   const totalExpenses = transactions
     .filter(t => t.type === 'Expense')
-    .reduce((acc, curr) => acc + curr.amount, 0);
+    .reduce((acc, curr) => acc + Number(curr.amount || 0), 0);
 
   const savings = totalIncome - totalExpenses;
 
@@ -153,111 +264,137 @@ export const AppProvider = ({ children }) => {
     return () => window.removeEventListener('hashchange', handleHashChange);
   }, []);
 
-  // Transaction Actions
-  const addTransaction = (newTx) => {
+  // Transaction Actions (Direct to Supabase via API)
+  const addTransaction = async (newTx) => {
     const matchedCategory = categories.find(c => c.name.toLowerCase() === (newTx.category || '').toLowerCase());
 
-    const transactionItem = {
-      id: `tx-${Date.now()}`,
-      date: newTx.date || 'Today',
+    const payload = {
+      amount: parseFloat(newTx.amount) || 0,
+      type: newTx.type || 'Expense',
       description: newTx.description || (newTx.type === 'Income' ? 'Payment Received' : 'General Expense'),
       category: newTx.category || (newTx.type === 'Income' ? 'Salary' : 'Food'),
-      type: newTx.type || 'Expense',
-      amount: parseFloat(newTx.amount) || 0,
+      notes: newTx.notes || null,
       icon: matchedCategory?.icon || (newTx.type === 'Income' ? 'Briefcase' : 'ShoppingBag'),
       categoryColor: matchedCategory?.color || (newTx.type === 'Income' ? '#3b82f6' : '#10b981'),
-      receiptUrl: newTx.receiptUrl || null
+      date: newTx.date && newTx.date !== 'Today' ? new Date(newTx.date).toISOString() : new Date().toISOString()
     };
 
-    setTransactions(prev => [transactionItem, ...prev]);
+    try {
+      const res = await api.createTransaction(payload);
+      if (res?.data) {
+        setTransactions(prev => [res.data, ...prev]);
 
-    // Calculate budget utilization for toast feedback
-    if (transactionItem.type === 'Expense') {
-      const bgt = budgets.find(b => b.category.toLowerCase() === transactionItem.category.toLowerCase());
-      if (bgt && bgt.limit > 0) {
-        const priorSpent = transactions
-          .filter(t => t.type === 'Expense' && t.category.toLowerCase() === transactionItem.category.toLowerCase())
-          .reduce((sum, t) => sum + t.amount, 0);
-        const newSpent = priorSpent + transactionItem.amount;
-        const pct = Math.round((newSpent / bgt.limit) * 100);
-        showToast(`Saved! ${transactionItem.category} budget is now ${pct}% used.`);
-      } else {
-        showToast(`Saved! ₹ ${transactionItem.amount.toLocaleString()} logged under ${transactionItem.category}.`);
-      }
-    } else {
-      showToast(`Income of ₹ ${transactionItem.amount.toLocaleString()} added successfully.`);
-    }
-
-    return transactionItem;
-  };
-
-  const updateTransaction = (id, updatedFields) => {
-    setTransactions(prev => prev.map(t => {
-      if (t.id === id) {
-        const updated = { ...t, ...updatedFields };
-        const matched = categories.find(c => c.name.toLowerCase() === (updated.category || '').toLowerCase());
-        if (matched) {
-          updated.categoryColor = matched.color;
-          updated.icon = matched.icon;
+        // Refresh budgets to update spent amounts accurately
+        try {
+          const bgtRes = await api.getBudgets();
+          if (bgtRes?.data) setBudgets(bgtRes.data);
+        } catch {
+          // ignore background budget refresh error
         }
-        return updated;
+
+        showToast(`Saved to Supabase! ₹ ${payload.amount.toLocaleString()} logged under ${payload.category}.`);
+        return res.data;
       }
-      return t;
-    }));
-    showToast('Transaction updated successfully.');
+    } catch (err) {
+      console.error('Failed to create transaction on server:', err);
+      showToast(err.message || 'Error saving to database.', 'error');
+      throw err;
+    }
   };
 
-  const deleteTransaction = (id) => {
-    setTransactions(prev => prev.filter(t => t.id !== id));
-    showToast('Transaction removed.');
+  const updateTransaction = async (id, updatedFields) => {
+    try {
+      const res = await api.updateTransaction(id, updatedFields);
+      if (res?.data) {
+        setTransactions(prev => prev.map(t => t.id === id ? { ...t, ...res.data } : t));
+        showToast('Transaction updated in Supabase.');
+        return res.data;
+      }
+    } catch (err) {
+      console.error('Failed to update transaction:', err);
+      showToast(err.message || 'Error updating transaction in database.', 'error');
+      throw err;
+    }
   };
 
-  const duplicateTransaction = (tx) => {
-    const clone = {
-      ...tx,
-      id: `tx-${Date.now()}`,
-      date: 'Today',
-      description: `${tx.description} (Copy)`
-    };
-    setTransactions(prev => [clone, ...prev]);
-    showToast(`Duplicated "${tx.description}".`);
+  const deleteTransaction = async (id) => {
+    try {
+      await api.deleteTransaction(id);
+      setTransactions(prev => prev.filter(t => t.id !== id));
+      showToast('Transaction deleted from Supabase.');
+    } catch (err) {
+      console.error('Failed to delete transaction:', err);
+      showToast(err.message || 'Error deleting from database.', 'error');
+      throw err;
+    }
+  };
+
+  const duplicateTransaction = async (tx) => {
+    return addTransaction({
+      amount: tx.amount,
+      type: tx.type,
+      description: `${tx.description} (Copy)`,
+      category: tx.category,
+      notes: tx.notes
+    });
   };
 
   // Budget Management
-  const addBudget = (newBudget) => {
-    const item = {
-      id: `bgt-${Date.now()}`,
-      category: newBudget.category,
-      limit: parseFloat(newBudget.limit) || 0,
-      month: newBudget.month || 'Sep 2025',
-      alertThreshold: parseInt(newBudget.alertThreshold, 10) || 80
-    };
-    setBudgets(prev => [item, ...prev]);
-    showToast(`Budget for ${newBudget.category} created.`);
+  const addBudget = async (newBudget) => {
+    try {
+      const res = await api.createBudget({
+        category: newBudget.category,
+        limit: parseFloat(newBudget.limit) || 0,
+        month: newBudget.month || new Date().toLocaleString('en-US', { month: 'short', year: 'numeric' }),
+        alertThreshold: parseInt(newBudget.alertThreshold, 10) || 80
+      });
+      const bgtRes = await api.getBudgets();
+      if (bgtRes?.data) setBudgets(bgtRes.data);
+      showToast(`Budget for ${newBudget.category} synced to Supabase.`);
+      return res.data;
+    } catch (err) {
+      console.error('Failed to save budget:', err);
+      showToast(err.message || 'Error saving budget.', 'error');
+      throw err;
+    }
   };
 
-  const updateBudget = (id, updatedFields) => {
-    setBudgets(prev => prev.map(b => b.id === id ? { ...b, ...updatedFields } : b));
-    showToast('Budget updated successfully.');
+  const updateBudget = async (id, updatedFields) => {
+    return addBudget(updatedFields);
   };
 
-  const deleteBudget = (id) => {
-    setBudgets(prev => prev.filter(b => b.id !== id));
-    showToast('Budget deleted.');
+  const deleteBudget = async (id) => {
+    try {
+      await api.deleteBudget(id);
+      setBudgets(prev => prev.filter(b => b.id !== id));
+      showToast('Budget deleted.');
+    } catch (err) {
+      console.error('Failed to delete budget:', err);
+      showToast(err.message || 'Error deleting budget.', 'error');
+      throw err;
+    }
   };
 
   // Category Management
-  const addCategory = (newCat) => {
-    const item = {
-      id: `cat-${Date.now()}`,
-      name: newCat.name,
-      type: newCat.type || 'Expense',
-      icon: newCat.icon || 'ShoppingBag',
-      color: newCat.color || '#10b981',
-      description: newCat.description || ''
-    };
-    setCategories(prev => [...prev, item]);
-    showToast(`Category "${newCat.name}" added.`);
+  const addCategory = async (newCat) => {
+    try {
+      const res = await api.createCategory({
+        name: newCat.name,
+        type: newCat.type || 'Expense',
+        icon: newCat.icon || 'ShoppingBag',
+        color: newCat.color || '#10b981',
+        description: newCat.description || ''
+      });
+      if (res?.data) {
+        setCategories(prev => [...prev, res.data]);
+        showToast(`Category "${newCat.name}" saved to database.`);
+        return res.data;
+      }
+    } catch (err) {
+      console.error('Failed to create category:', err);
+      showToast(err.message || 'Error saving category.', 'error');
+      throw err;
+    }
   };
 
   const updateCategory = (id, updatedFields) => {
@@ -265,92 +402,139 @@ export const AppProvider = ({ children }) => {
     showToast('Category updated.');
   };
 
-  const deleteCategory = (id, reassignToCategory = null) => {
+  const deleteCategory = async (id, reassignToCategory = null) => {
     const catToDelete = categories.find(c => c.id === id);
     if (!catToDelete) return;
 
-    if (reassignToCategory) {
-      setTransactions(prev => prev.map(t => {
-        if (t.category.toLowerCase() === catToDelete.name.toLowerCase()) {
-          return { ...t, category: reassignToCategory };
-        }
-        return t;
-      }));
+    try {
+      await api.deleteCategory(id);
+      if (reassignToCategory) {
+        setTransactions(prev => prev.map(t => {
+          if (t.category.toLowerCase() === catToDelete.name.toLowerCase()) {
+            return { ...t, category: reassignToCategory };
+          }
+          return t;
+        }));
+      }
+      setCategories(prev => prev.filter(c => c.id !== id));
+      showToast(`Category "${catToDelete.name}" deleted.`);
+    } catch (err) {
+      console.error('Failed to delete category:', err);
+      showToast(err.message || 'Error deleting category.', 'error');
+      throw err;
     }
-
-    setCategories(prev => prev.filter(c => c.id !== id));
-    showToast(`Category "${catToDelete.name}" deleted.`);
   };
 
   // Savings Goals Management
-  const addGoal = (newGoal) => {
-    const item = {
-      id: `goal-${Date.now()}`,
-      title: newGoal.title,
-      targetAmount: parseFloat(newGoal.targetAmount) || 0,
-      currentAmount: parseFloat(newGoal.currentAmount) || 0,
-      targetDate: newGoal.targetDate || 'Dec 2025',
-      category: newGoal.category || 'General',
-      color: newGoal.color || '#10b981',
-      icon: newGoal.icon || 'Target'
-    };
-    setGoals(prev => [item, ...prev]);
-    showToast(`Savings goal "${newGoal.title}" created.`);
-  };
-
-  const updateGoal = (id, updatedFields) => {
-    setGoals(prev => prev.map(g => g.id === id ? { ...g, ...updatedFields } : g));
-    showToast('Savings goal updated.');
-  };
-
-  const contributeToGoal = (id, addAmount) => {
-    setGoals(prev => prev.map(g => {
-      if (g.id === id) {
-        const nextAmount = g.currentAmount + (parseFloat(addAmount) || 0);
-        const reached = nextAmount >= g.targetAmount && g.currentAmount < g.targetAmount;
-        if (reached) {
-          showToast(`Congratulations! You reached your goal "${g.title}"! 🎉`);
-        } else {
-          showToast(`Added ₹ ${parseFloat(addAmount).toLocaleString()} to "${g.title}".`);
-        }
-        return { ...g, currentAmount: nextAmount };
+  const addGoal = async (newGoal) => {
+    try {
+      const res = await api.createGoal({
+        title: newGoal.title,
+        targetAmount: parseFloat(newGoal.targetAmount) || 0,
+        currentAmount: parseFloat(newGoal.currentAmount) || 0,
+        targetDate: newGoal.targetDate || 'Dec 2026',
+        category: newGoal.category || 'General',
+        color: newGoal.color || '#10b981',
+        icon: newGoal.icon || 'Target'
+      });
+      if (res?.data) {
+        setGoals(prev => [res.data, ...prev]);
+        showToast(`Goal "${newGoal.title}" saved to Supabase.`);
+        return res.data;
       }
-      return g;
-    }));
+    } catch (err) {
+      console.error('Failed to create goal:', err);
+      showToast(err.message || 'Error saving goal to database.', 'error');
+      throw err;
+    }
   };
 
-  const deleteGoal = (id) => {
-    setGoals(prev => prev.filter(g => g.id !== id));
-    showToast('Savings goal removed.');
+  const updateGoal = async (id, updatedFields) => {
+    try {
+      const res = await api.updateGoal(id, updatedFields);
+      if (res?.data) {
+        setGoals(prev => prev.map(g => g.id === id ? { ...g, ...res.data } : g));
+        showToast('Savings goal updated in Supabase.');
+        return res.data;
+      }
+    } catch (err) {
+      console.error('Failed to update goal:', err);
+      showToast(err.message || 'Error updating goal.', 'error');
+      throw err;
+    }
+  };
+
+  const contributeToGoal = async (id, addAmount) => {
+    try {
+      const res = await api.contributeGoal(id, parseFloat(addAmount) || 0);
+      if (res?.data) {
+        setGoals(prev => prev.map(g => g.id === id ? { ...g, ...res.data } : g));
+        showToast(`Added ₹ ${parseFloat(addAmount).toLocaleString()} to goal!`);
+        return res.data;
+      }
+    } catch (err) {
+      console.error('Failed to contribute to goal:', err);
+      showToast(err.message || 'Error contributing to goal.', 'error');
+      throw err;
+    }
+  };
+
+  const deleteGoal = async (id) => {
+    try {
+      await api.deleteGoal(id);
+      setGoals(prev => prev.filter(g => g.id !== id));
+      showToast('Goal removed from Supabase.');
+    } catch (err) {
+      console.error('Failed to delete goal:', err);
+      showToast(err.message || 'Error deleting goal.', 'error');
+      throw err;
+    }
   };
 
   // Notification management
-  const markNotificationAsRead = (id) => {
-    setNotifications(prev => prev.map(n => n.id === id ? { ...n, read: true } : n));
+  const markNotificationAsRead = async (id) => {
+    try {
+      await api.markNotificationAsRead(id);
+      setNotifications(prev => prev.map(n => n.id === id ? { ...n, read: true } : n));
+    } catch (err) {
+      console.error('Failed to mark notification as read:', err);
+    }
   };
 
-  const markAllNotificationsAsRead = () => {
-    setNotifications(prev => prev.map(n => ({ ...n, read: true })));
-    showToast('All notifications marked as read.');
+  const markAllNotificationsAsRead = async () => {
+    try {
+      await api.markAllNotificationsAsRead();
+      setNotifications(prev => prev.map(n => ({ ...n, read: true })));
+      showToast('All notifications marked as read.');
+    } catch (err) {
+      console.error('Failed to mark all as read:', err);
+    }
   };
 
   const unreadNotificationCount = notifications.filter(n => !n.read).length;
 
   // Reset / Clear Data
   const resetAllData = () => {
-    setTransactions(INITIAL_TRANSACTIONS);
-    setCategories(INITIAL_CATEGORIES);
-    setBudgets(INITIAL_BUDGETS);
-    setGoals(INITIAL_GOALS);
-    setNotifications(INITIAL_NOTIFICATIONS);
-    showToast('Reset to default sample data.');
+    fetchAllData();
+    showToast('Data refreshed from Supabase.');
   };
 
-  const clearAllData = () => {
-    setTransactions([]);
-    setBudgets([]);
-    setGoals([]);
-    showToast('All transaction and budget data cleared.');
+  const clearAllData = async () => {
+    try {
+      for (const t of transactions) {
+        await api.deleteTransaction(t.id).catch(() => {});
+      }
+      for (const b of budgets) {
+        await api.deleteBudget(b.id).catch(() => {});
+      }
+      for (const g of goals) {
+        await api.deleteGoal(g.id).catch(() => {});
+      }
+      await fetchAllData();
+      showToast('All records cleared from database.');
+    } catch (err) {
+      console.error('Failed to clear data:', err);
+    }
   };
 
   return (
@@ -394,6 +578,12 @@ export const AppProvider = ({ children }) => {
         clearAllData,
         user,
         setUser,
+        login,
+        register,
+        logout,
+        isLoading,
+        isSyncing,
+        fetchAllData,
         stats: {
           totalIncome,
           totalExpenses,
@@ -413,3 +603,5 @@ export const useApp = () => {
   }
   return context;
 };
+
+export default AppContext;

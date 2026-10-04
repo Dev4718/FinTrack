@@ -2,7 +2,8 @@ import { z } from 'zod';
 import prisma from '../config/db.js';
 
 export const budgetSchema = z.object({
-  categoryId: z.string().min(1, 'Category is required'),
+  categoryId: z.string().optional(),
+  category: z.string().optional(),
   limit: z.number().positive('Budget limit must be greater than zero'),
   month: z.string().min(1, 'Month is required'), // e.g. "Sep 2025" or "2026-10"
   alertThreshold: z.number().min(1).max(100).optional().default(80)
@@ -77,7 +78,26 @@ export const getBudgets = async (req, res, next) => {
 
 export const upsertBudget = async (req, res, next) => {
   try {
-    const { categoryId, limit, month, alertThreshold } = req.body;
+    let { categoryId, category: categoryName, limit, month, alertThreshold } = req.body;
+
+    if (!categoryId && categoryName) {
+      const foundCategory = await prisma.category.findFirst({
+        where: {
+          name: { equals: categoryName, mode: 'insensitive' },
+          OR: [{ userId: req.user.id }, { userId: null }]
+        }
+      });
+      if (foundCategory) {
+        categoryId = foundCategory.id;
+      }
+    }
+
+    if (!categoryId) {
+      return res.status(400).json({
+        success: false,
+        message: 'Could not find or match category for budget.'
+      });
+    }
 
     const budget = await prisma.budget.upsert({
       where: {
