@@ -1,0 +1,18 @@
+.landing-page-wrapper,
+.fintrack-landing {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  background-color: var(--bg-main);
+  color: var(--text-muted);
+  width: 100%;
+}
+
+main {
+  flex: 1;
+}
+
+/* smooth scroll spacing */
+section {
+  scroll-margin-top: 72px;
+}

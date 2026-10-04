@@ -1,0 +1,643 @@
+.finance-visual-container {
+  position: relative;
+  width: 100%;
+  max-width: 480px;
+  margin: 2.25rem auto;
+}
+
+/* Faint emerald tint (#ECFDF5) glow behind the preview card */
+.visual-glow {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 100%;
+  height: 100%;
+  background: radial-gradient(circle, #ECFDF5 0%, rgba(236, 253, 245, 0.8) 55%, transparent 75%);
+  filter: blur(35px);
+  z-index: 0;
+  pointer-events: none;
+}
+
+/* Main Bright Theme White Card */
+.dashboard-glass-card {
+  position: relative;
+  z-index: 1;
+  background: #ffffff;
+  border: 1px solid var(--border-subtle); /* 1px light-gray border #E2E8F0 */
+  border-radius: var(--radius-xl);
+  padding: 1.35rem 1.45rem;
+  box-shadow: 0 12px 32px -4px rgba(15, 23, 42, 0.08), 0 4px 12px -2px rgba(15, 23, 42, 0.04);
+  display: flex;
+  flex-direction: column;
+  gap: 1.15rem;
+  transition: var(--transition-normal);
+}
+
+.dashboard-glass-card:hover {
+  border-color: #cbd5e1;
+  box-shadow: 0 16px 36px -4px rgba(15, 23, 42, 0.1), 0 6px 14px -2px rgba(15, 23, 42, 0.05);
+}
+
+/* Card Header */
+.card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+}
+
+.card-subtitle {
+  display: block;
+  font-size: 0.78rem;
+  color: var(--text-muted); /* #475569 */
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  font-weight: 600;
+}
+
+.card-balance {
+  font-size: 2rem;
+  font-weight: 800;
+  color: var(--text-main); /* #0F172A */
+  margin-top: 0.2rem;
+  letter-spacing: -0.02em;
+  font-variant-numeric: tabular-nums;
+}
+
+.trend-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.35rem 0.75rem;
+  border-radius: var(--radius-full);
+  font-size: 0.85rem;
+  font-weight: 700;
+}
+
+.trend-badge.positive {
+  background-color: var(--color-income-bg); /* #ECFDF5 */
+  color: #047857;
+  border: 1px solid rgba(16, 185, 129, 0.25);
+}
+
+/* Stats Row: Income, Expenses, Savings */
+.stats-row {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 0.65rem;
+}
+
+.stat-pill {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  background-color: var(--bg-subtle); /* #F8FAFC */
+  padding: 0.65rem 0.65rem;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border-subtle);
+  transition: var(--transition-fast);
+}
+
+.stat-pill:hover {
+  background-color: #f1f5f9;
+}
+
+.stat-icon-bg {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: var(--radius-sm);
+  flex-shrink: 0;
+}
+
+/* Emerald accent for Income */
+.stat-icon-bg.green {
+  background-color: var(--color-income-bg);
+  color: var(--primary-600);
+}
+
+/* Coral accent for Expenses */
+.stat-icon-bg.coral {
+  background-color: var(--color-expense-bg);
+  color: var(--color-expense);
+}
+
+/* Blue accent for Savings */
+.stat-icon-bg.blue {
+  background-color: var(--color-savings-bg);
+  color: var(--color-savings);
+}
+
+.stat-info {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.stat-label {
+  font-size: 0.7rem;
+  font-weight: 500;
+  color: var(--text-muted); /* #475569 */
+  line-height: 1.2;
+}
+
+.stat-val {
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: var(--text-main);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-variant-numeric: tabular-nums;
+  line-height: 1.3;
+}
+
+.income-val {
+  color: #047857;
+}
+
+.expense-val {
+  color: var(--color-expense); /* Coral */
+}
+
+.savings-val {
+  color: var(--color-savings); /* Blue */
+}
+
+/* Cashflow Chart Section */
+.visual-chart-section {
+  background-color: var(--bg-subtle); /* #F8FAFC */
+  border-radius: var(--radius-lg);
+  padding: 0.9rem 0.9rem 0.75rem;
+  border: 1px solid var(--border-subtle);
+}
+
+.chart-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 0.75rem;
+}
+
+.chart-title-box {
+  display: flex;
+  flex-direction: column;
+}
+
+.chart-title {
+  font-size: 0.875rem;
+  font-weight: 700;
+  color: var(--text-main);
+}
+
+.chart-subtitle {
+  font-size: 0.7rem;
+  color: var(--text-muted);
+}
+
+.chart-legend {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.legend-item {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: 0.7rem;
+  color: var(--text-muted);
+  font-weight: 500;
+}
+
+.legend-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+}
+
+.income-dot {
+  background-color: var(--primary-500);
+}
+
+.expense-dot {
+  background-color: var(--color-expense);
+}
+
+/* Chart Body with Y-Axis and Plot Area */
+.chart-body {
+  display: flex;
+  align-items: stretch;
+  height: 110px;
+}
+
+.chart-y-axis {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  padding-bottom: 22px;
+  margin-right: 8px;
+  flex-shrink: 0;
+}
+
+.y-axis-label {
+  font-size: 0.65rem;
+  color: var(--text-subtle);
+  font-weight: 500;
+  line-height: 1;
+}
+
+.chart-plot-area {
+  position: relative;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+}
+
+/* Faint Horizontal Gridlines */
+.chart-gridlines {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 85px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  pointer-events: none;
+  z-index: 1;
+}
+
+.gridline {
+  width: 100%;
+  border-top: 1px dashed rgba(226, 232, 240, 0.9);
+}
+
+.gridline-base {
+  border-top: 1px solid #e2e8f0;
+}
+
+/* Bars Container */
+.bars-container {
+  position: relative;
+  z-index: 2;
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  height: 85px;
+  padding: 0 4px;
+}
+
+.bar-group {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  height: 100%;
+  justify-content: flex-end;
+  flex: 1;
+  cursor: pointer;
+  position: relative;
+  outline: none;
+}
+
+.bar-group:focus-visible .bar-wrapper,
+.bar-group:hover .bar-wrapper {
+  transform: translateY(-2px);
+}
+
+/* Interactive Hover Tooltip */
+.chart-tooltip {
+  position: absolute;
+  bottom: calc(100% + 8px);
+  left: 50%;
+  transform: translateX(-50%);
+  background-color: #0f172a;
+  color: #ffffff;
+  padding: 0.45rem 0.65rem;
+  border-radius: var(--radius-sm);
+  font-size: 0.7rem;
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.18);
+  pointer-events: none;
+  z-index: 30;
+  white-space: nowrap;
+  animation: fadeIn 0.15s ease-out;
+}
+
+.chart-tooltip::after {
+  content: '';
+  position: absolute;
+  top: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  border: 4px solid transparent;
+  border-top-color: #0f172a;
+}
+
+.tooltip-month {
+  font-weight: 700;
+  margin-bottom: 2px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.15);
+  padding-bottom: 2px;
+}
+
+.tooltip-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.5rem;
+  font-size: 0.65rem;
+}
+
+.green-text {
+  color: #6ee7b7;
+}
+
+.coral-text {
+  color: #fda4af;
+}
+
+.bar-wrapper {
+  display: flex;
+  align-items: flex-end;
+  gap: 3px;
+  height: 100%;
+  transition: transform var(--transition-fast);
+}
+
+.bar {
+  width: 7px;
+  border-radius: 3px 3px 0 0;
+  transition: height 0.8s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+/* Emerald Income Bar */
+.income-bar {
+  background: linear-gradient(to top, #059669, #10b981);
+}
+
+/* Coral Expense Bar */
+.expense-bar {
+  background: linear-gradient(to top, #e11d48, #f43f5e);
+}
+
+.bar-label-wrapper {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  margin-top: 6px;
+  height: 22px;
+}
+
+.bar-label {
+  font-size: 0.72rem;
+  color: var(--text-subtle);
+  font-weight: 500;
+}
+
+/* Latest Month Highlighted */
+.bar-group.is-latest .bar-label {
+  color: #047857;
+  font-weight: 700;
+}
+
+.latest-indicator {
+  display: inline-block;
+  background-color: var(--color-income-bg);
+  color: #047857;
+  font-size: 0.58rem;
+  font-weight: 700;
+  padding: 1px 4px;
+  border-radius: 4px;
+  line-height: 1.1;
+  border: 1px solid rgba(16, 185, 129, 0.3);
+}
+
+/* Recent Transactions Snippet */
+.recent-transactions {
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+}
+
+.tx-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.42rem 0.2rem;
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.tx-item:last-child {
+  border-bottom: none;
+  padding-bottom: 0;
+}
+
+.tx-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  border-radius: var(--radius-sm);
+  flex-shrink: 0;
+}
+
+.icon-income {
+  background-color: var(--color-income-bg);
+  color: var(--primary-600);
+}
+
+/* Savings transfer row is neutral gray, not red */
+.icon-neutral-gray {
+  background-color: var(--color-neutral-bg);
+  color: var(--color-neutral);
+}
+
+.tx-info {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  margin-left: 0.75rem;
+}
+
+.tx-title {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--text-main); /* #0F172A */
+}
+
+.tx-date {
+  font-size: 0.72rem;
+  color: var(--text-subtle);
+}
+
+.tx-amount {
+  font-size: 0.85rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.amount-positive {
+  color: #047857; /* Emerald income */
+}
+
+/* Savings transfer amount is neutral gray, not red */
+.amount-neutral-gray {
+  color: #475569; /* Neutral gray */
+}
+
+/* Floating Badges: Anchored to preview card outer edges */
+.floating-badge {
+  position: absolute;
+  z-index: 10;
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  background-color: #ffffff;
+  padding: 0.65rem 0.95rem;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border-subtle);
+  box-shadow: 0 10px 25px -5px rgba(15, 23, 42, 0.08), 0 8px 10px -6px rgba(15, 23, 42, 0.04);
+}
+
+/* Chip 1: Anchored to outer top-right edge (shifted more upwards and right) */
+.badge-top-right {
+  top: -44px;
+  right: -36px;
+  animation: floatSubtleTop 5s ease-in-out infinite alternate;
+}
+
+/* Chip 2: Anchored to outer bottom-left edge (shifted more below and left) */
+.badge-bottom-left {
+  bottom: -44px;
+  left: -36px;
+  animation: floatSubtleBottom 6s ease-in-out infinite alternate 0.5s;
+}
+
+.floating-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: var(--radius-full);
+  flex-shrink: 0;
+}
+
+.floating-icon.green {
+  background-color: var(--color-income-bg);
+  color: var(--primary-600);
+}
+
+.floating-icon.blue-tint {
+  background-color: var(--color-savings-bg);
+  color: var(--color-savings);
+}
+
+.badge-text-primary {
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: var(--text-main);
+  line-height: 1.2;
+}
+
+.badge-text-secondary {
+  font-size: 0.7rem;
+  color: var(--text-muted);
+  line-height: 1.2;
+}
+
+/* Slow 3-4px float animation */
+@keyframes floatSubtleTop {
+  0% {
+    transform: translateY(0px);
+  }
+  100% {
+    transform: translateY(-4px);
+  }
+}
+
+@keyframes floatSubtleBottom {
+  0% {
+    transform: translateY(0px);
+  }
+  100% {
+    transform: translateY(4px);
+  }
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translate(-50%, 4px);
+  }
+  to {
+    opacity: 1;
+    transform: translate(-50%, 0);
+  }
+}
+
+/* Responsiveness down to 390px: chips stay inside viewport, no text covered */
+@media (max-width: 640px) {
+  .finance-visual-container {
+    max-width: 100%;
+    margin: 2.75rem 0;
+    padding: 0 4px;
+  }
+
+  .badge-top-right {
+    top: -42px;
+    right: 4px;
+    left: auto;
+  }
+
+  .badge-bottom-left {
+    bottom: -42px;
+    left: 4px;
+    right: auto;
+  }
+
+  .dashboard-glass-card {
+    padding: 1.25rem 1rem;
+    gap: 1.2rem;
+  }
+
+  .card-balance {
+    font-size: 1.8rem;
+  }
+
+  .stats-row {
+    gap: 0.4rem;
+  }
+
+  .stat-pill {
+    padding: 0.5rem 0.4rem;
+    gap: 0.35rem;
+  }
+
+  .stat-val {
+    font-size: 0.76rem;
+  }
+
+  .bar {
+    width: 5px;
+  }
+}
+
+/* Disable all motion under prefers-reduced-motion */
+@media (prefers-reduced-motion: reduce) {
+  .badge-top-right,
+  .badge-bottom-left {
+    animation: none !important;
+  }
+
+  .bar {
+    transition: none !important;
+  }
+
+  .chart-tooltip {
+    animation: none !important;
+  }
+}
